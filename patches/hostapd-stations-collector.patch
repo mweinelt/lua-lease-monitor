@@ -1,0 +1,47 @@
+diff --git a/utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_stations.lua b/utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hos
+tapd_stations.lua
+index a3e6c331a..855f5eaf1 100644
+--- a/utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_stations.lua
++++ b/utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_stations.lua
+@@ -133,6 +133,9 @@ local function scrape()
+     end
+   end
+ 
++  local u = ubus.connect()
++  local dhcp = u:call("dhpcmon", "get_leases", {})["leases"]
++
+   for _, labels in ipairs(get_wifi_interface_labels()) do
+     local vif = labels['vif']
+     local handle = io.popen("hostapd_cli -i " .. vif .." all_sta")
+@@ -140,6 +143,7 @@ local function scrape()
+     handle:close()
+ 
+     local station = nil
++    local lease = nil
+     local metrics = {}
+ 
+     for line in all_sta:gmatch("[^\r\n]+") do
+@@ -147,6 +151,11 @@ local function scrape()
+         -- the first time we see a mac we have no previous station to eval, so don't
+         if station ~= nil then
+           labels.station = station
++          local lease = dhcp[station] or {}
++          if lease then
++            labels.hostname = lease.hostname
++            labels.ip = lease.ip
++          end
+           evaluate_metrics(labels, metrics)
+         end
+ 
+@@ -164,6 +173,11 @@ local function scrape()
+     -- the final station, check if there ever was one, will need a metrics eval as well
+     if station ~= nil then
+       labels.station = station
++      local lease = dhcp[station] or {}
++      if lease then
++        labels.hostname = lease.hostname
++        labels.ip = lease.ip
++      end
+       evaluate_metrics(labels, metrics)
+     end
+   end
